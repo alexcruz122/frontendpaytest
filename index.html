@@ -18,7 +18,9 @@
     <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
   <input type="text" id="email" value="test.user@example.com" placeholder="Email">
   <input type="text" id="first_name" value="Test" placeholder="First Name">
+  <input type="text" id="last_name" value="User" placeholder="Last Name">
   <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
+  <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
   
   <button id="payButton">Pay Now (LKR)</button>
 
@@ -37,9 +39,9 @@
           // 1. Gather and Format Data
           const amountInput = document.getElementById("amount").value;
           
-          // CRITICAL FIXES: Amount must be string with two decimals, and all fields must be sent.
+          // Ensure amount is a string with two decimals (prevents 440 error)
           const orderId = "TEST-" + Math.floor(Date.now() / 1000); 
-          const formattedAmount = parseFloat(amountInput).toFixed(2); // Ensure two decimals
+          const formattedAmount = parseFloat(amountInput).toFixed(2); 
           
           const payload = {
             order_id: orderId,
@@ -48,9 +50,9 @@
             // Mandatory fields required by Webxpay Redirect Integration:
             email: document.getElementById("email").value,
             first_name: document.getElementById("first_name").value,
-            last_name: "Test", // Assuming a static placeholder for the test
+            last_name: document.getElementById("last_name").value, 
             contact_number: document.getElementById("contact_number").value,
-            address_line_one: "123 Colombo Road", // Placeholder for test
+            address_line_one: document.getElementById("address_line_one").value, 
           };
 
           debugOutput.innerHTML = "Sending... Order ID: " + orderId;
@@ -63,37 +65,39 @@
             body: JSON.stringify(payload)
           });
 
-          // 3. Get the Response Text (This will be the HTML)
+          // 3. Get the Response Text (This MUST be the HTML)
           const responseText = await response.text();
           
           if (!response.ok) {
             // Worker returned an error (4xx or 5xx)
             console.error("Worker returned HTTP error:", response.status);
             console.log("Response body:", responseText);
-            alert("Error occurred. Check console for details.");
+            alert("Error occurred. Check console.");
             return;
           }
 
-          // 4. Inject the HTML into the page body
-          // The HTML contains the hidden form and the JS script to auto-submit it.
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = responseText;
+          // 4. Inject the HTML and Force Submission (CRITICAL FIX)
           
-          // Find the form and append it to the document body
-          const redirectForm = tempDiv.querySelector('#redirectForm');
+          // Clear the current page content
+          document.body.innerHTML = '<h1>Redirecting to Webxpay...</h1>';
+          
+          // Create a temporary element to hold the HTML
+          const tempContainer = document.createElement('div');
+          tempContainer.innerHTML = responseText;
+          
+          // Find the form element by ID (or tag name)
+          const redirectForm = tempContainer.querySelector('#redirectForm');
           
           if (redirectForm) {
-            // Clear the page content to prepare for the redirect
-            document.body.innerHTML = ''; 
+            // Append the form to the live document body
+            document.body.appendChild(redirectForm);
             
-            // Inject the form and auto-submit
-            document.body.appendChild(tempDiv);
-            
-            // No need to manually submit, the script in the injected HTML will handle it
-            console.log("Webxpay form injected and submitting automatically...");
+            // Execute the form submission immediately!
+            console.log("Webxpay form successfully injected and submitting automatically...");
+            redirectForm.submit();
           } else {
-            // Should not happen if the Worker is successful
-            alert("Successful response but no redirect form found.");
+            console.error("Final Redirect Error: The auto-submission form (#redirectForm) was not found in the response.");
+            document.body.innerHTML = '<h1>Payment Failed: Missing Redirect Form. Check console.</h1>';
           }
 
         } catch (err) {
