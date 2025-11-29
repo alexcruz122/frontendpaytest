@@ -57,17 +57,30 @@
             body: JSON.stringify(payload)
           });
 
-          const data = await response.json();
+          // The Worker returns HTML with the auto-submit form
+          const html = await response.text();
 
-          if (!response.ok || !data.url) {
-            console.error("Worker error:", data);
+          if (!response.ok) {
+            console.error("Worker returned HTTP error:", response.status);
+            console.log("Response body:", html);
             alert("Payment failed. Check console for details.");
             return;
           }
 
-          // Redirect to Webxpay checkout
-          debugOutput.innerHTML = "Redirecting to Webxpay...";
-          window.location.href = data.url;
+          // Inject the returned HTML so the form auto-submits
+          document.body.innerHTML = '<h1>Redirecting to Webxpay...</h1>';
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+          const redirectForm = tempDiv.querySelector('#redirectForm');
+
+          if (redirectForm) {
+            document.body.appendChild(redirectForm);
+            console.log("Submitting Webxpay form...");
+            redirectForm.submit();
+          } else {
+            console.error("Redirect form not found in Worker response.");
+            document.body.innerHTML = '<h1>Payment Failed: Missing Redirect Form. Check console.</h1>';
+          }
 
         } catch (err) {
           console.error("Critical error calling Worker:", err);
