@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Webxpay Worker</title>
+</head>
+<body>
+  <h2>Test Payment</h2>
+  <button id="payButton">Pay Now</button>
+
+  <script>
+    const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev/"; // Replace with your Worker URL
+
+    document.getElementById("payButton").addEventListener("click", async () => {
+      try {
+        const orderId = "TEST" + Date.now(); // unique order ID
+        const amount = 100; // test amount
+        const currency = "LKR";
+
+        const response = await fetch(`${workerUrl}/create-payment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ order_id: orderId, amount, currency })
+        });
+
+        const data = await response.json();
+        console.log("Worker Response:", data);
+
+        if (data.redirect_url) {
+          // redirect user to Webxpay payment page
+          window.location.href = data.redirect_url;
+        } else {
+          alert("Payment request created. Check console for response.");
+        }
+      } catch (err) {
+        console.error("Error calling Worker:", err);
+      }
+    });
+  </script>
+</body>
+</html>
