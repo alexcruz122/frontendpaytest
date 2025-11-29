@@ -1,32 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Webxpay Test</title>
 </head>
 <body>
-  <h2>Test Payment</h2>
+  <h2>Webxpay Payment Test</h2>
   <button id="payButton">Pay Now</button>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const payButton = document.getElementById("payButton");
-      if (!payButton) {
-        console.error("Pay button not found!");
-        return;
-      }
+      if (!payButton) return;
 
-      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev/"; // Replace with your Worker URL
+      // Your Cloudflare Worker URL
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
 
       payButton.addEventListener("click", async () => {
         try {
-          console.log("Sending payment request...");
-
           const orderId = "TEST" + Date.now(); // unique order ID
           const amount = 100; // test amount
           const currency = "LKR";
 
-          const response = await fetch(`${workerUrl}/create-payment`, { // Only one slash here
+          console.log("Sending payment request...");
+
+          const response = await fetch(`${workerUrl}/create-payment`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ order_id: orderId, amount, currency })
@@ -36,6 +34,7 @@
             console.error("Worker returned HTTP error:", response.status);
             const text = await response.text();
             console.log("Response body:", text);
+            alert("Error occurred. Check console.");
             return;
           }
 
@@ -47,7 +46,7 @@
             return;
           }
 
-          // If Webxpay returns redirect_url, go there
+          // Redirect if Webxpay returns a URL
           if (data.redirect_url) {
             window.location.href = data.redirect_url;
           } else {
