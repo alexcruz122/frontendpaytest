@@ -1,64 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Webxpay Test</title>
+  <meta charset="UTF-8">
+  <title>Webxpay IPG Integration Test</title>
+  <style>
+    /* Simple styling for visibility */
+    body { font-family: sans-serif; padding: 20px; }
+    input { padding: 8px; margin-bottom: 10px; width: 200px; display: block; }
+    button { padding: 10px 20px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+  </style>
 </head>
 <body>
-  <h2>Webxpay Payment Test</h2>
-  <button id="payButton">Pay Now</button>
+  <h2>Webxpay Payment Test (Redirect Flow)</h2>
+  
+  <p>Enter Mandatory Test Details:</p>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const payButton = document.getElementById("payButton");
-      if (!payButton) return;
+    <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
+  <input type="text" id="email" value="test.user@example.com" placeholder="Email">
+  <input type="text" id="first_name" value="Test" placeholder="First Name">
+  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
+  
+  <button id="payButton">Pay Now (LKR)</button>
 
-      // Your Cloudflare Worker URL
-      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
+  <div id="debugOutput" style="margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: none;"></div>
 
-      payButton.addEventListener("click", async () => {
-        try {
-          const orderId = "TEST" + Date.now(); // unique order ID
-          const amount = 100; // test amount
-          const currency = "LKR";
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const payButton = document.getElementById("payButton");
+      const debugOutput = document.getElementById("debugOutput");
 
-          console.log("Sending payment request...");
+      // Your Cloudflare Worker URL
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
 
-          const response = await fetch(`${workerUrl}/create-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ order_id: orderId, amount, currency })
-          });
+      payButton.addEventListener("click", async () => {
+        try {
+          // 1. Gather and Format Data
+          const amountInput = document.getElementById("amount").value;
+          
+          // CRITICAL FIXES: Amount must be string with two decimals, and all fields must be sent.
+          const orderId = "TEST-" + Math.floor(Date.now() / 1000); 
+          const formattedAmount = parseFloat(amountInput).toFixed(2); // Ensure two decimals
+          
+          const payload = {
+            order_id: orderId,
+            amount: formattedAmount,
+            currency: "LKR",
+            // Mandatory fields required by Webxpay Redirect Integration:
+            email: document.getElementById("email").value,
+            first_name: document.getElementById("first_name").value,
+            last_name: "Test", // Assuming a static placeholder for the test
+            contact_number: document.getElementById("contact_number").value,
+            address_line_one: "123 Colombo Road", // Placeholder for test
+          };
 
-          if (!response.ok) {
-            console.error("Worker returned HTTP error:", response.status);
-            const text = await response.text();
-            console.log("Response body:", text);
-            alert("Error occurred. Check console.");
-            return;
-          }
+          debugOutput.innerHTML = "Sending... Order ID: " + orderId;
+          debugOutput.style.display = 'block';
 
-          const data = await response.json().catch(() => null);
-          console.log("Worker Response:", data);
+          // 2. Call the Cloudflare Worker Endpoint
+          const response = await fetch(`${workerUrl}/create-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
 
-          if (!data) {
-            alert("No JSON response from Worker. Check console.");
-            return;
-          }
+          // 3. Get the Response Text (This will be the HTML)
+          const responseText = await response.text();
+          
+          if (!response.ok) {
+            // Worker returned an error (4xx or 5xx)
+            console.error("Worker returned HTTP error:", response.status);
+            console.log("Response body:", responseText);
+            alert("Error occurred. Check console for details.");
+            return;
+          }
 
-          // Redirect if Webxpay returns a URL
-          if (data.redirect_url) {
-            window.location.href = data.redirect_url;
-          } else {
-            alert("Payment request sent. Check console for Worker response.");
-          }
+          // 4. Inject the HTML into the page body
+          // The HTML contains the hidden form and the JS script to auto-submit it.
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = responseText;
+          
+          // Find the form and append it to the document body
+          const redirectForm = tempDiv.querySelector('#redirectForm');
+          
+          if (redirectForm) {
+            // Clear the page content to prepare for the redirect
+            document.body.innerHTML = ''; 
+            
+            // Inject the form and auto-submit
+            document.body.appendChild(tempDiv);
+            
+            // No need to manually submit, the script in the injected HTML will handle it
+            console.log("Webxpay form injected and submitting automatically...");
+          } else {
+            // Should not happen if the Worker is successful
+            alert("Successful response but no redirect form found.");
+          }
 
-        } catch (err) {
-          console.error("Error calling Worker:", err);
-          alert("Error occurred. Check console.");
-        }
-      });
-    });
-  </script>
+        } catch (err) {
+          console.error("Critical error calling Worker:", err);
+          alert("A critical error occurred. See console.");
+        }
+      });
+    });
+  </script>
 </body>
 </html>
