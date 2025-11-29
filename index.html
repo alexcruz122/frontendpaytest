@@ -12,66 +12,50 @@
 </head>
 <body>
   <h2>Webxpay Payment Test (Redirect Flow)</h2>
-
   <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
   <input type="text" id="email" value="test.user@example.com" placeholder="Email">
   <input type="text" id="first_name" value="Test" placeholder="First Name">
   <input type="text" id="last_name" value="User" placeholder="Last Name">
-  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number">
+  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
   <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
-
   <button id="payButton">Pay Now (LKR)</button>
-
   <div id="debugOutput"></div>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
       const payButton = document.getElementById("payButton");
       const debugOutput = document.getElementById("debugOutput");
-      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
 
       payButton.addEventListener("click", async () => {
+        const orderId = "TEST-" + Math.floor(Date.now() / 1000);
+        const payload = {
+          order_id: orderId,
+          amount: parseFloat(document.getElementById("amount").value).toFixed(2),
+          currency: "LKR",
+          email: document.getElementById("email").value,
+          first_name: document.getElementById("first_name").value,
+          last_name: document.getElementById("last_name").value,
+          contact_number: document.getElementById("contact_number").value,
+          address_line_one: document.getElementById("address_line_one").value
+        };
+
+        debugOutput.style.display = "block";
+        debugOutput.textContent = "Sending payment request...";
+
         try {
-          const orderId = "TEST-" + Math.floor(Date.now() / 1000);
-          const formattedAmount = parseFloat(document.getElementById("amount").value).toFixed(2);
-
-          const payload = {
-            order_id: orderId,
-            amount: formattedAmount,
-            email: document.getElementById("email").value,
-            first_name: document.getElementById("first_name").value,
-            last_name: document.getElementById("last_name").value,
-            contact_number: document.getElementById("contact_number").value,
-            address_line_one: document.getElementById("address_line_one").value,
-          };
-
-          debugOutput.innerHTML = "Sending payment request... Order ID: " + orderId;
-          debugOutput.style.display = 'block';
-
-          // Call Worker
-          const response = await fetch(`${workerUrl}/create-payment`, {
+          const res = await fetch(`${workerUrl}/create-payment`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
+          const html = await res.text();
+          if (!res.ok) throw new Error("Worker returned error");
 
-          const html = await response.text();
-
-          // Inject form HTML and submit
-          const tempDiv = document.createElement("div");
-          tempDiv.innerHTML = html;
-          const form = tempDiv.querySelector("#redirectForm");
-          if (form) {
-            document.body.innerHTML = "<h2>Redirecting to Webxpay...</h2>";
-            document.body.appendChild(form);
-            form.submit();
-          } else {
-            debugOutput.innerHTML = "Payment failed. Redirect form not found.";
-            console.error("Redirect form missing in Worker response.");
-          }
+          document.body.innerHTML = html; // Inject HTML form and auto-submit
         } catch (err) {
-          console.error("Critical error:", err);
-          debugOutput.innerHTML = "Critical error. Check console.";
+          console.error(err);
+          alert("Payment failed. Check console.");
         }
       });
     });
