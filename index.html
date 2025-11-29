@@ -6,56 +6,63 @@
   <style>
     body { font-family: sans-serif; padding: 20px; }
     input { padding: 8px; margin-bottom: 10px; width: 250px; display: block; }
-    button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    button { padding: 10px 20px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
     #debugOutput { margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: none; }
   </style>
 </head>
 <body>
-  <h2>Webxpay Payment Test (Redirect Flow)</h2>
-  <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
+  <h2>Webxpay Payment Test</h2>
+  <input type="text" id="amount" value="100.00" placeholder="Amount">
   <input type="text" id="email" value="test.user@example.com" placeholder="Email">
   <input type="text" id="first_name" value="Test" placeholder="First Name">
   <input type="text" id="last_name" value="User" placeholder="Last Name">
-  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
-  <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
-  <button id="payButton">Pay Now (LKR)</button>
+  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number">
+  <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line">
+
+  <button id="payButton">Pay Now</button>
   <div id="debugOutput"></div>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
       const payButton = document.getElementById("payButton");
-      const debugOutput = document.getElementById("debugOutput");
+      const debug = document.getElementById("debugOutput");
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
 
       payButton.addEventListener("click", async () => {
-        const orderId = "TEST-" + Math.floor(Date.now() / 1000);
-        const payload = {
-          order_id: orderId,
-          amount: parseFloat(document.getElementById("amount").value).toFixed(2),
-          currency: "LKR",
-          email: document.getElementById("email").value,
-          first_name: document.getElementById("first_name").value,
-          last_name: document.getElementById("last_name").value,
-          contact_number: document.getElementById("contact_number").value,
-          address_line_one: document.getElementById("address_line_one").value
-        };
-
-        debugOutput.style.display = "block";
-        debugOutput.textContent = "Sending payment request...";
-
         try {
-          const res = await fetch(`${workerUrl}/create-payment`, {
+          const orderId = "TEST-" + Math.floor(Date.now() / 1000);
+          const payload = {
+            order_id: orderId,
+            amount: parseFloat(document.getElementById("amount").value).toFixed(2),
+            email: document.getElementById("email").value,
+            first_name: document.getElementById("first_name").value,
+            last_name: document.getElementById("last_name").value,
+            contact_number: document.getElementById("contact_number").value,
+            address_line_one: document.getElementById("address_line_one").value
+          };
+
+          debug.innerHTML = "Sending payment request...";
+          debug.style.display = "block";
+
+          const response = await fetch(`${workerUrl}/create-payment`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          const html = await res.text();
-          if (!res.ok) throw new Error("Worker returned error");
 
-          document.body.innerHTML = html; // Inject HTML form and auto-submit
+          const html = await response.text();
+          if (!response.ok) {
+            console.error("Worker error:", html);
+            alert("Payment failed. Check console.");
+            return;
+          }
+
+          // Inject HTML form and auto-submit
+          document.body.innerHTML = html;
+
         } catch (err) {
-          console.error(err);
-          alert("Payment failed. Check console.");
+          console.error("Critical error:", err);
+          alert("A critical error occurred. See console.");
         }
       });
     });
