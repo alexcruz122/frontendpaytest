@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Test Webxpay Worker</title>
 </head>
 <body>
@@ -8,34 +9,57 @@
   <button id="payButton">Pay Now</button>
 
   <script>
-    const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev/"; // Replace with your Worker URL
+    // Wrap in DOMContentLoaded to ensure button exists
+    document.addEventListener("DOMContentLoaded", () => {
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev/"; // Replace with your Worker URL
+      const payButton = document.getElementById("payButton");
 
-    document.getElementById("payButton").addEventListener("click", async () => {
-      try {
-        const orderId = "TEST" + Date.now(); // unique order ID
-        const amount = 100; // test amount
-        const currency = "LKR";
-
-        const response = await fetch(`${workerUrl}/create-payment`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ order_id: orderId, amount, currency })
-        });
-
-        const data = await response.json();
-        console.log("Worker Response:", data);
-
-        if (data.redirect_url) {
-          // redirect user to Webxpay payment page
-          window.location.href = data.redirect_url;
-        } else {
-          alert("Payment request created. Check console for response.");
-        }
-      } catch (err) {
-        console.error("Error calling Worker:", err);
+      if (!payButton) {
+        console.error("Pay button not found!");
+        return;
       }
+
+      payButton.addEventListener("click", async () => {
+        try {
+          const orderId = "TEST" + Date.now(); // unique order ID
+          const amount = 100; // test amount
+          const currency = "LKR";
+
+          console.log("Sending payment request...");
+
+          const response = await fetch(`${workerUrl}/create-payment`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ order_id: orderId, amount, currency })
+          });
+
+          if (!response.ok) {
+            console.error("Worker returned HTTP error:", response.status);
+            const text = await response.text();
+            console.log("Response body:", text);
+            return;
+          }
+
+          const data = await response.json().catch(() => null);
+          console.log("Worker Response:", data);
+
+          if (!data) {
+            alert("No JSON response from Worker. Check console.");
+            return;
+          }
+
+          if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+          } else {
+            alert("Payment request sent. Check console for Worker response.");
+          }
+        } catch (err) {
+          console.error("Error calling Worker:", err);
+          alert("Error occurred. Check console.");
+        }
+      });
     });
   </script>
 </body>
