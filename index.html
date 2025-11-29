@@ -1,111 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Webxpay IPG Integration Test</title>
-  <style>
-    /* Simple styling for visibility */
-    body { font-family: sans-serif; padding: 20px; }
-    input { padding: 8px; margin-bottom: 10px; width: 200px; display: block; }
-    button { padding: 10px 20px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
-  </style>
+  <meta charset="UTF-8">
+  <title>Webxpay IPG Integration Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input { padding: 8px; margin-bottom: 10px; width: 250px; display: block; }
+    button { padding: 10px 20px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+    #debugOutput { margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: none; }
+  </style>
 </head>
 <body>
-  <h2>Webxpay Payment Test (Redirect Flow)</h2>
-  
-  <p>Enter Mandatory Test Details:</p>
+  <h2>Webxpay Payment Test (Redirect Flow)</h2>
+  <p>Enter Mandatory Test Details:</p>
 
-    <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
-  <input type="text" id="email" value="test.user@example.com" placeholder="Email">
-  <input type="text" id="first_name" value="Test" placeholder="First Name">
-  <input type="text" id="last_name" value="User" placeholder="Last Name">
-  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
-  <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
-  
-  <button id="payButton">Pay Now (LKR)</button>
+  <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
+  <input type="text" id="email" value="test.user@example.com" placeholder="Email">
+  <input type="text" id="first_name" value="Test" placeholder="First Name">
+  <input type="text" id="last_name" value="User" placeholder="Last Name">
+  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
+  <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
 
-  <div id="debugOutput" style="margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: none;"></div>
+  <button id="payButton">Pay Now (LKR)</button>
+  <div id="debugOutput"></div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const payButton = document.getElementById("payButton");
-      const debugOutput = document.getElementById("debugOutput");
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const payButton = document.getElementById("payButton");
+      const debugOutput = document.getElementById("debugOutput");
+      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
 
-      // Your Cloudflare Worker URL
-      const workerUrl = "https://webxpay-backend.dilankafernando-social.workers.dev";
+      payButton.addEventListener("click", async () => {
+        try {
+          // Gather form data
+          const orderId = "TEST-" + Math.floor(Date.now() / 1000);
+          const formattedAmount = parseFloat(document.getElementById("amount").value).toFixed(2);
 
-      payButton.addEventListener("click", async () => {
-        try {
-          // 1. Gather and Format Data
-          const amountInput = document.getElementById("amount").value;
-          
-          // Ensure amount is a string with two decimals (prevents 440 error)
-          const orderId = "TEST-" + Math.floor(Date.now() / 1000); 
-          const formattedAmount = parseFloat(amountInput).toFixed(2); 
-          
-          const payload = {
-            order_id: orderId,
-            amount: formattedAmount,
-            currency: "LKR",
-            // Mandatory fields required by Webxpay Redirect Integration:
-            email: document.getElementById("email").value,
-            first_name: document.getElementById("first_name").value,
-            last_name: document.getElementById("last_name").value, 
-            contact_number: document.getElementById("contact_number").value,
-            address_line_one: document.getElementById("address_line_one").value, 
-          };
+          const payload = {
+            order_id: orderId,
+            amount: formattedAmount,
+            currency: "LKR",
+            email: document.getElementById("email").value,
+            first_name: document.getElementById("first_name").value,
+            last_name: document.getElementById("last_name").value,
+            contact_number: document.getElementById("contact_number").value,
+            address_line_one: document.getElementById("address_line_one").value,
+          };
 
-          debugOutput.innerHTML = "Sending... Order ID: " + orderId;
-          debugOutput.style.display = 'block';
+          debugOutput.innerHTML = "Sending payment request... Order ID: " + orderId;
+          debugOutput.style.display = 'block';
 
-          // 2. Call the Cloudflare Worker Endpoint
-          const response = await fetch(`${workerUrl}/create-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
+          // Call Worker
+          const response = await fetch(`${workerUrl}/create-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
 
-          // 3. Get the Response Text (This MUST be the HTML)
-          const responseText = await response.text();
-          
-          if (!response.ok) {
-            // Worker returned an error (4xx or 5xx)
-            console.error("Worker returned HTTP error:", response.status);
-            console.log("Response body:", responseText);
-            alert("Error occurred. Check console.");
-            return;
-          }
+          const data = await response.json();
 
-          // 4. Inject the HTML and Force Submission (CRITICAL FIX)
-          
-          // Clear the current page content
-          document.body.innerHTML = '<h1>Redirecting to Webxpay...</h1>';
-          
-          // Create a temporary element to hold the HTML
-          const tempContainer = document.createElement('div');
-          tempContainer.innerHTML = responseText;
-          
-          // Find the form element by ID (or tag name)
-          const redirectForm = tempContainer.querySelector('#redirectForm');
-          
-          if (redirectForm) {
-            // Append the form to the live document body
-            document.body.appendChild(redirectForm);
-            
-            // Execute the form submission immediately!
-            console.log("Webxpay form successfully injected and submitting automatically...");
-            redirectForm.submit();
-          } else {
-            console.error("Final Redirect Error: The auto-submission form (#redirectForm) was not found in the response.");
-            document.body.innerHTML = '<h1>Payment Failed: Missing Redirect Form. Check console.</h1>';
-          }
+          if (!response.ok || !data.url) {
+            console.error("Worker error:", data);
+            alert("Payment failed. Check console for details.");
+            return;
+          }
 
-        } catch (err) {
-          console.error("Critical error calling Worker:", err);
-          alert("A critical error occurred. See console.");
-        }
-      });
-    });
-  </script>
+          // Redirect to Webxpay checkout
+          debugOutput.innerHTML = "Redirecting to Webxpay...";
+          window.location.href = data.url;
+
+        } catch (err) {
+          console.error("Critical error calling Worker:", err);
+          alert("A critical error occurred. See console.");
+        }
+      });
+    });
+  </script>
 </body>
 </html>
