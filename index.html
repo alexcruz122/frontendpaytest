@@ -2,26 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Webxpay IPG Integration Test</title>
+  <title>Webxpay Payment Test</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     input { padding: 8px; margin-bottom: 10px; width: 250px; display: block; }
-    button { padding: 10px 20px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+    button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
     #debugOutput { margin-top: 20px; border: 1px solid #ccc; padding: 10px; display: none; }
   </style>
 </head>
 <body>
   <h2>Webxpay Payment Test (Redirect Flow)</h2>
-  <p>Enter Mandatory Test Details:</p>
 
   <input type="text" id="amount" value="100.00" placeholder="Amount (e.g., 100.00)">
   <input type="text" id="email" value="test.user@example.com" placeholder="Email">
   <input type="text" id="first_name" value="Test" placeholder="First Name">
   <input type="text" id="last_name" value="User" placeholder="Last Name">
-  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number (+94...)">
+  <input type="text" id="contact_number" value="+94712622012" placeholder="Contact Number">
   <input type="text" id="address_line_one" value="123 Colombo Road" placeholder="Address Line One">
 
   <button id="payButton">Pay Now (LKR)</button>
+
   <div id="debugOutput"></div>
 
   <script>
@@ -32,14 +32,12 @@
 
       payButton.addEventListener("click", async () => {
         try {
-          // Gather form data
           const orderId = "TEST-" + Math.floor(Date.now() / 1000);
           const formattedAmount = parseFloat(document.getElementById("amount").value).toFixed(2);
 
           const payload = {
             order_id: orderId,
             amount: formattedAmount,
-            currency: "LKR",
             email: document.getElementById("email").value,
             first_name: document.getElementById("first_name").value,
             last_name: document.getElementById("last_name").value,
@@ -57,34 +55,23 @@
             body: JSON.stringify(payload)
           });
 
-          // The Worker returns HTML with the auto-submit form
           const html = await response.text();
 
-          if (!response.ok) {
-            console.error("Worker returned HTTP error:", response.status);
-            console.log("Response body:", html);
-            alert("Payment failed. Check console for details.");
-            return;
-          }
-
-          // Inject the returned HTML so the form auto-submits
-          document.body.innerHTML = '<h1>Redirecting to Webxpay...</h1>';
-          const tempDiv = document.createElement('div');
+          // Inject form HTML and submit
+          const tempDiv = document.createElement("div");
           tempDiv.innerHTML = html;
-          const redirectForm = tempDiv.querySelector('#redirectForm');
-
-          if (redirectForm) {
-            document.body.appendChild(redirectForm);
-            console.log("Submitting Webxpay form...");
-            redirectForm.submit();
+          const form = tempDiv.querySelector("#redirectForm");
+          if (form) {
+            document.body.innerHTML = "<h2>Redirecting to Webxpay...</h2>";
+            document.body.appendChild(form);
+            form.submit();
           } else {
-            console.error("Redirect form not found in Worker response.");
-            document.body.innerHTML = '<h1>Payment Failed: Missing Redirect Form. Check console.</h1>';
+            debugOutput.innerHTML = "Payment failed. Redirect form not found.";
+            console.error("Redirect form missing in Worker response.");
           }
-
         } catch (err) {
-          console.error("Critical error calling Worker:", err);
-          alert("A critical error occurred. See console.");
+          console.error("Critical error:", err);
+          debugOutput.innerHTML = "Critical error. Check console.";
         }
       });
     });
